@@ -1,0 +1,95 @@
+# Grafana alert rules (file provisioning format), LAB windows.
+# Replace datasourceUid with your Prometheus datasource UID
+# (Connections > Data sources > Prometheus, shown in the URL).
+apiVersion: 1
+groups:
+  - orgId: 1
+    name: checkout-slo-burn
+    folder: SLOs
+    interval: 1m
+    rules:
+      - uid: checkout-fast-burn
+        title: Checkout PlaceOrder - fast burn (14.4x)
+        condition: C
+        for: 2m
+        noDataState: OK
+        execErrState: Error
+        labels: { severity: page, service: checkout }
+        annotations:
+          summary: "Checkout is burning its error budget at >14.4x"
+        data:
+          - refId: A
+            relativeTimeRange: { from: 600, to: 0 }
+            datasourceUid: webstore-metrics
+            model:
+              refId: A
+              instant: true
+              expr: |
+                (
+                  (sum(rate(traces_span_metrics_calls_total{service_name="checkout",span_name="oteldemo.CheckoutService/PlaceOrder",status_code="STATUS_CODE_ERROR"}[15m])) or vector(0))
+                  / sum(rate(traces_span_metrics_calls_total{service_name="checkout",span_name="oteldemo.CheckoutService/PlaceOrder"}[15m]))
+                ) > (14.4 * 0.005)
+                and
+                (
+                  (sum(rate(traces_span_metrics_calls_total{service_name="checkout",span_name="oteldemo.CheckoutService/PlaceOrder",status_code="STATUS_CODE_ERROR"}[5m])) or vector(0))
+                  / sum(rate(traces_span_metrics_calls_total{service_name="checkout",span_name="oteldemo.CheckoutService/PlaceOrder"}[5m]))
+                ) > (14.4 * 0.005)
+          - refId: B
+            datasourceUid: __expr__
+            model:
+              refId: B
+              type: reduce
+              expression: A
+              reducer: last
+              settings: { mode: dropNN }
+          - refId: C
+            datasourceUid: __expr__
+            model:
+              refId: C
+              type: threshold
+              expression: B
+              conditions:
+                - evaluator: { type: gt, params: [0] }
+
+      - uid: checkout-slow-burn
+        title: Checkout PlaceOrder - slow burn (6x)
+        condition: C
+        for: 5m
+        noDataState: OK
+        execErrState: Error
+        labels: { severity: ticket, service: checkout }
+        annotations:
+          summary: "Checkout is burning its error budget at >6x"
+        data:
+          - refId: A
+            relativeTimeRange: { from: 600, to: 0 }
+            datasourceUid: webstore-metrics
+            model:
+              refId: A
+              instant: true
+              expr: |
+                (
+                  (sum(rate(traces_span_metrics_calls_total{service_name="checkout",span_name="oteldemo.CheckoutService/PlaceOrder",status_code="STATUS_CODE_ERROR"}[1h])) or vector(0))
+                  / sum(rate(traces_span_metrics_calls_total{service_name="checkout",span_name="oteldemo.CheckoutService/PlaceOrder"}[1h]))
+                ) > (6 * 0.005)
+                and
+                (
+                  (sum(rate(traces_span_metrics_calls_total{service_name="checkout",span_name="oteldemo.CheckoutService/PlaceOrder",status_code="STATUS_CODE_ERROR"}[10m])) or vector(0))
+                  / sum(rate(traces_span_metrics_calls_total{service_name="checkout",span_name="oteldemo.CheckoutService/PlaceOrder"}[10m]))
+                ) > (6 * 0.005)
+          - refId: B
+            datasourceUid: __expr__
+            model:
+              refId: B
+              type: reduce
+              expression: A
+              reducer: last
+              settings: { mode: dropNN }
+          - refId: C
+            datasourceUid: __expr__
+            model:
+              refId: C
+              type: threshold
+              expression: B
+              conditions:
+                - evaluator: { type: gt, params: [0] }

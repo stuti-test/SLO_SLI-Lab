@@ -1,0 +1,35 @@
+# Production-window version of the burn-rate alerts as Prometheus rules.
+groups:
+  - name: checkout-slo-burn
+    rules:
+      - alert: CheckoutFastBurn
+        expr: |
+          (
+            (sum(rate(traces_span_metrics_calls_total{service_name="checkout",status_code="STATUS_CODE_ERROR"}[1h])) or vector(0))
+            / sum(rate(traces_span_metrics_calls_total{service_name="checkout"}[1h]))
+          ) > (14.4 * 0.005)
+          and
+          (
+            (sum(rate(traces_span_metrics_calls_total{service_name="checkout",status_code="STATUS_CODE_ERROR"}[5m])) or vector(0))
+            / sum(rate(traces_span_metrics_calls_total{service_name="checkout"}[5m]))
+          ) > (14.4 * 0.005)
+        for: 2m
+        labels: { severity: page }
+        annotations:
+          summary: "Checkout burning error budget at >14.4x"
+
+      - alert: CheckoutSlowBurn
+        expr: |
+          (
+            (sum(rate(traces_span_metrics_calls_total{service_name="checkout",status_code="STATUS_CODE_ERROR"}[6h])) or vector(0))
+            / sum(rate(traces_span_metrics_calls_total{service_name="checkout"}[6h]))
+          ) > (6 * 0.005)
+          and
+          (
+            (sum(rate(traces_span_metrics_calls_total{service_name="checkout",status_code="STATUS_CODE_ERROR"}[30m])) or vector(0))
+            / sum(rate(traces_span_metrics_calls_total{service_name="checkout"}[30m]))
+          ) > (6 * 0.005)
+        for: 15m
+        labels: { severity: ticket }
+        annotations:
+          summary: "Checkout burning error budget at >6x"
